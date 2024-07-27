@@ -1,5 +1,6 @@
 use sqlx::FromRow;
-use std::collections::HashMap;
+use std::collections::{HashMap, BinaryHeap};
+use std::cmp::Reverse;
 
 #[derive(FromRow, Clone, Debug)]
 pub struct Node {
@@ -38,7 +39,6 @@ impl Graph {
             .entry(edge.node_a_id)
             .or_default()
             .push(edge.clone());
-
         let reverse_edge = Edge {
             node_a_id: edge.node_b_id,
             node_b_id: edge.node_a_id,
@@ -51,26 +51,32 @@ impl Graph {
     }
 
     pub fn shortest_path(&self, from_node_id: i32, to_node_id: i32) -> i32 {
-        let mut distances = HashMap::new();
-        distances.insert(from_node_id, 0);
+        let mut distances: HashMap<i32, i32> = HashMap::new();
+        let mut heap = BinaryHeap::new();
 
-        for _ in 0..self.nodes.len() {
-            for node_id in self.nodes.keys() {
-                if let Some(edges) = self.edges.get(node_id) {
-                    for edge in edges {
-                        let new_distance = distances
-                            .get(node_id)
-                            .and_then(|d: &i32| d.checked_add(edge.weight))
-                            .unwrap_or(i32::MAX);
-                        let current_distance = distances.get(&edge.node_b_id).unwrap_or(&i32::MAX);
-                        if new_distance < *current_distance {
-                            distances.insert(edge.node_b_id, new_distance);
-                        }
+        distances.insert(from_node_id, 0);
+        heap.push(Reverse((0, from_node_id)));
+
+        while let Some(Reverse((dist, node_id))) = heap.pop() {
+            if node_id == to_node_id {
+                return dist;
+            }
+
+            if dist > *distances.get(&node_id).unwrap_or(&i32::MAX) {
+                continue;
+            }
+
+            if let Some(edges) = self.edges.get(&node_id) {
+                for edge in edges {
+                    let new_dist = dist.saturating_add(edge.weight);
+                    if new_dist < *distances.get(&edge.node_b_id).unwrap_or(&i32::MAX) {
+                        distances.insert(edge.node_b_id, new_dist);
+                        heap.push(Reverse((new_dist, edge.node_b_id)));
                     }
                 }
             }
         }
 
-        distances.get(&to_node_id).cloned().unwrap_or(i32::MAX)
+        *distances.get(&to_node_id).unwrap_or(&i32::MAX)
     }
 }
