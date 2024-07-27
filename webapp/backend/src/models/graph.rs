@@ -51,32 +51,37 @@ impl Graph {
     }
 
     pub fn shortest_path(&self, from_node_id: i32, to_node_id: i32) -> i32 {
-        let mut distances: HashMap<i32, i32> = HashMap::new();
+			let mut dist: HashMap<i32, i32> = HashMap::new();
         let mut heap = BinaryHeap::new();
 
-        distances.insert(from_node_id, 0);
+        for &node_id in self.nodes.keys() {
+            dist.insert(node_id, i32::MAX);
+        }
+        dist.insert(from_node_id, 0);
         heap.push(Reverse((0, from_node_id)));
 
-        while let Some(Reverse((dist, node_id))) = heap.pop() {
+        while let Some(Reverse((cost, node_id))) = heap.pop() {
             if node_id == to_node_id {
-                return dist;
+                return cost;
             }
 
-            if dist > *distances.get(&node_id).unwrap_or(&i32::MAX) {
+            if cost > *dist.get(&node_id).unwrap() {
                 continue;
             }
 
             if let Some(edges) = self.edges.get(&node_id) {
                 for edge in edges {
-                    let new_dist = dist.saturating_add(edge.weight);
-                    if new_dist < *distances.get(&edge.node_b_id).unwrap_or(&i32::MAX) {
-                        distances.insert(edge.node_b_id, new_dist);
-                        heap.push(Reverse((new_dist, edge.node_b_id)));
+                    let next = edge.node_b_id;
+                    let next_cost = cost + edge.weight;
+
+                    if next_cost < *dist.get(&next).unwrap() {
+                        heap.push(Reverse((next_cost, next)));
+                        dist.insert(next, next_cost);
                     }
                 }
             }
         }
 
-        *distances.get(&to_node_id).unwrap_or(&i32::MAX)
+        -1
     }
 }
